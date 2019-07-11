@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o errtrace
+set -o nounset
+set -o pipefail
+#set -o xtrace
+
+cd $(dirname $(realpath $0))
+
+pkgs=$(go list -f '{{.Dir}}' ./...)
+
+go fmt $pkgs
+go vet $pkgs
+golint -set_exit_status -min_confidence 0 $pkgs

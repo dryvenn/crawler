@@ -26,8 +26,24 @@ Crawl this URL for its subdomain only and display the results as a list of strin
 		os.Exit(1)
 }
 
+func simpleOutput(pages chan crawler.Page) {
+	for page := range pages {
+		fmt.Printf("%s: %s\n", page.URL, strings.Join(page.Links, ", "))
+	}
+}
+
+func mermaidOutput(pages chan crawler.Page) {
+	fmt.Println("graph TD")
+	for page := range pages {
+		for _, link := range page.Links {
+			fmt.Printf("    %s --> %s\n", page.URL, link)
+		}
+	}
+}
+
 func main() {
 	debug := flag.Bool("debug", false, "Whether to enable logs")
+	mermaid := flag.Bool("mermaid", false, "Change the output to be a mermaid graph")
 	flag.Parse()
 
 	if !*debug {
@@ -44,7 +60,9 @@ func main() {
 		os.Exit(2)
 	}
 
-	for page := range pages {
-		fmt.Printf("%s: %s\n", page.URL, strings.Join(page.Links, ", "))
+	if *mermaid {
+		mermaidOutput(pages)
+	} else {
+		simpleOutput(pages)
 	}
 }

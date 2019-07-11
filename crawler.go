@@ -95,6 +95,8 @@ func (c crawler) start() {
 	}
 
 	scrapeURL := func(u string) {
+		// Mark this record as scraped.
+		scrapedLinksRecord[u] = struct{}{}
 		// Increment the waitgroup to signal pending result.
 		wg.Add(1)
 		go func() {
@@ -132,8 +134,7 @@ func (c crawler) start() {
 				// Been there, done that.
 				continue
 			}
-			// Not scraped yet! Mark it so and do it!
-			scrapedLinksRecord[l] = struct{}{}
+			// Not scraped yet, just do it, do it!
 			scrapeURL(l)
 		}
 		// Send the result for this page away.

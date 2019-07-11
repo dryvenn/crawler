@@ -3,27 +3,42 @@ package main
 
 import (
 	"fmt"
-	"github.com/dryvenn/crawler"
 	"io/ioutil"
 	"os"
 	"path"
+	"flag"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/dryvenn/crawler"
 )
 
-func main() {
-	log.SetOutput(ioutil.Discard)
-	if len(os.Args) != 2 {
-		fmt.Printf(`
-Usage: %s <url>
+func usage() {
+	fmt.Printf(
+`Usage:
+	> %s <url>
 
 Crawl this URL for its subdomain only and display the results as a list of strings.
+
 `, path.Base(os.Args[0]))
+	flag.PrintDefaults()
 		os.Exit(1)
+}
+
+func main() {
+	debug := flag.Bool("debug", false, "Whether to enable logs")
+	flag.Parse()
+
+	if !*debug {
+		log.SetOutput(ioutil.Discard)
 	}
 
-	pages, err := crawler.Crawl(os.Args[1])
+	if flag.NArg() != 1 {
+		usage()
+	}
+
+	pages, err := crawler.Crawl(flag.Arg(0))
 	if err != nil {
 		fmt.Printf("Error starting crawling: %v\n", err)
 		os.Exit(2)

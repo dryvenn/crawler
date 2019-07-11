@@ -28,30 +28,54 @@ type crawler struct {
 	linksScraper
 }
 
-// Filter takes a string, validates it as an URL, and checks its Host part
-// matches the original host.
-// filterLinks takes in a list of links, validates them as URL, checks their
-// Host part matches the crawler's baseURL's host, and returns them stripped
-// of their parameters.
-func (c crawler) filterLinks(links []string) []string {
-	ret := make([]string, 0, len(links))
-	for _, l := range links {
-		// Validate the link as URL.
-		u, err := url.Parse(l)
-		if err != nil {
-			log.WithError(err).WithField("url", l).Info("Invalid URL")
-			continue
-		}
-		// Check its Host is the same as the baseURL's.
-		if u.Host != c.baseURL.Host {
-			continue
-		}
-		// Get rid of query part.
-		u.RawQuery = ""
-		// Only keep basic info.
-		ret = append(ret, u.String())
+// Filter returns a new page whose links has been filtered:
+// - invalid links are taken out
+// - duplicates are taken out
+// - absolute links with a different host than the URL are taken out
+// - relative links are made absolute
+// - the query and fragment of the links are removed
+func (p Page) filterLinks() Page {
+	pageURL, err := url.Parse(p.URL)
+	if err != nil {
+		// This should never happen, a Page's URL should always be valid.
+		// In this case, let's give up: it is impossible to do filtering.
+		log.WithError(err).WithField("page", p).Error("Page as invalid URL")
+		return p
 	}
-	return ret
+	filtered := make(map[string]struct{})
+	for _, l := range p.Links {
+		// Validate the link as URL.
+		linkURL, err := url.Parse(l)
+		if err != nil {
+			log.WithError(err).WithField("url", l).Debug("Invalid page link")
+			continue
+		}
+		if linkURL.IsAbs() {
+			// For absolute URLs, check the Host is the same as the page's.
+			// Allow for a different scheme though.
+			if linkURL.Host != pageURL.Host {
+				continue
+			}
+		} else {
+			// For relative URLs, fill the scheme and host fields.
+			linkURL.Scheme = pageURL.Scheme
+			linkURL.Host = pageURL.Host
+		}
+		// Either way, get rid of the query.
+		linkURL.RawQuery = ""
+		linkURL.Fragment = ""
+		// Only keep basic info.
+		filtered[linkURL.String()] = struct{}{}
+	}
+	// Return the page with filtered links.
+	links := make([]string, 0, len(filtered))
+	for k := range filtered {
+		links = append(links, k)
+	}
+	return Page{
+		URL:   p.URL,
+		Links: links,
+	}
 }
 
 func (c crawler) start() {
@@ -83,10 +107,7 @@ func (c crawler) start() {
 				wg.Done()
 				return
 			}
-			scrapedPages <- Page{
-				URL:   u,
-				Links: c.filterLinks(links),
-			}
+			scrapedPages <- Page{URL: u, Links: links}.filterLinks()
 		}()
 	}
 

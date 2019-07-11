@@ -17,14 +17,18 @@ func stringToURL(t *testing.T, s string) *url.URL {
 	return u
 }
 
-func stringSlicesEqual(a []string, b []string) bool {
+func stringSlicesEqualUnordered(a []string, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
+NextValue:
 	for i := range a {
-		if a[i] != b[i] {
-			return false
+		for j := range b {
+			if a[i] == b[j] {
+				continue NextValue
+			}
 		}
+		return false
 	}
 	return true
 }
@@ -34,14 +38,14 @@ func stringSlicesMapsEqual(a map[string][]string, b map[string][]string) bool {
 		return false
 	}
 	for k := range a {
-		if !stringSlicesEqual(a[k], b[k]) {
+		if !stringSlicesEqualUnordered(a[k], b[k]) {
 			return false
 		}
 	}
 	return true
 }
 
-func TestCrawler_filterLinks(t *testing.T) {
+func TestPage_filterLinks(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
 	t.Run("test links are filtered according to base URL", func(t *testing.T) {
 		data := []struct {
@@ -61,9 +65,15 @@ func TestCrawler_filterLinks(t *testing.T) {
 			{
 				baseURL: "https://example.com",
 				input: []string{
-					"example.com",
+					"/resources",
+					"/",
+					"data",
 				},
-				output: []string{},
+				output: []string{
+					"https://example.com/resources",
+					"https://example.com/",
+					"https://example.com/data",
+				},
 			},
 			{
 				baseURL: "https://example.com",
@@ -82,6 +92,7 @@ func TestCrawler_filterLinks(t *testing.T) {
 				baseURL: "https://example.com",
 				input: []string{
 					"https://example.com?hello=world",
+					"https://example.com#L235",
 				},
 				output: []string{
 					"https://example.com",
@@ -100,11 +111,11 @@ func TestCrawler_filterLinks(t *testing.T) {
 			},
 		}
 		for _, d := range data {
-			crawl := crawler{
-				baseURL: stringToURL(t, d.baseURL),
-			}
-			res := crawl.filterLinks(d.input)
-			if !stringSlicesEqual(res, d.output) {
+			res := Page{
+				URL:   d.baseURL,
+				Links: d.input,
+			}.filterLinks().Links
+			if !stringSlicesEqualUnordered(res, d.output) {
 				t.Errorf("in=%v ref=%v res=%v", d.input, d.output, res)
 			}
 		}

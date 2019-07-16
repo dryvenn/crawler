@@ -33,10 +33,23 @@ func simpleOutput(pages chan crawler.Page) {
 }
 
 func mermaidOutput(pages chan crawler.Page) {
-	fmt.Println("graph TD")
+	idCounter := 0
+	idDirectory := make(map[string]int)
+	getID := func(u string) int {
+		if id, ok := idDirectory[u]; ok {
+			return id
+		} else {
+			id = idCounter
+			idCounter += 1
+			idDirectory[u] = id
+			fmt.Println(fmt.Sprintf(`    id%d["%s"]`, id, u))
+			return id
+		}
+	}
+	fmt.Println(`graph TD`)
 	for page := range pages {
 		for _, link := range page.Links {
-			fmt.Printf("    %s --> %s\n", page.URL, link)
+			fmt.Println(fmt.Sprintf(`    id%d --> id%d`, getID(page.URL), getID(link)))
 		}
 	}
 }
